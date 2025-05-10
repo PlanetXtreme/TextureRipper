@@ -1,18 +1,42 @@
 #Notes for improvements
 #Bezier curves for each edge
 #saving projects as project files (.TexR in plaintext format - Stores control points AND input image current directory)
+#rotate an input image
+#rotate render output
+#ability to animate/batch export a sequence from the placed coordinates
+#ability to drag select all the coordinates at once
 
-
+import sys
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import cv2
 import numpy as np
+import time
+import os
 
 class TextureRipperApp:
-    def __init__(self, root):
+    def __init__(self, root, sys_arg_content=None):
         self.root = root
         self.root.title("Texture Ripper")
+        self.sys_arg_content = sys_arg_content
+        if self.sys_arg_content:
+            print("Content from the file:")
+            print(self.sys_arg_content)
+        else:
+            print("No content provided.")
+        
+        # Force-load tkdnd
+        self.root.tk.call('package', 'require', 'tkdnd')
+
+        self.label = tk.Label(self.root, text="Drop an image file here", width=40, height=10, bg="lightgray")
+        self.label.pack(padx=10, pady=10)
+
+        self.label.drop_target_register(DND_FILES)
+        self.label.dnd_bind('<<Drop>>', self.drop)
+        self.label.pack(expand=True, fill='both', padx=10, pady=10)
+        self.label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         # Initialize variables
         self.image = None
@@ -29,13 +53,48 @@ class TextureRipperApp:
         self.map_image = None  # Composite image (map) of all extracted textures
         self.zoom_active = False  # Whether zoom mode is active
 
-        # Create the main frames
+        # Top button frames
+        self.top_frame = tk.Frame(root)
+        self.top_frame.pack(side=tk.TOP, pady=5)
+
+        # Create the main frames (lol)
         self.main_frame = tk.Frame(root)
         self.main_frame.pack(side=tk.TOP, padx=10, pady=10)
+
+        # Bottom button frames
+        self.button_frame = tk.Frame(root)
+        self.button_frame.pack(side=tk.TOP, pady=10)
 
         # Set initial canvas dimensions
         self.canvas_width = 800
         self.canvas_height = 600
+
+
+        button_style = {
+            'bg': 'black',
+            'fg': 'white',
+            'font': ('Tahoma', 10),
+            'relief': tk.RAISED,
+            'bd': 2,
+            'activebackground': 'lightgray',
+            'activeforeground': 'black'
+        }
+
+
+        self.load_button = tk.Button(self.top_frame, text="Load Image", command=self.load_image, **button_style)
+        self.load_button.pack(side=tk.LEFT, padx=5)
+
+        self.load_button = tk.Button(self.top_frame, text="Load Project", command=self.load_project, **button_style)
+        self.load_button.pack(side=tk.LEFT, padx=5)
+
+        self.extract_button = tk.Button(self.top_frame, text="Save Project", command=self.save_project, **button_style)
+        self.extract_button.pack(side=tk.LEFT, padx=5)
+
+        self.extract_button = tk.Button(self.top_frame, text="Render Texture", command=self.extract_texture, **button_style)
+        self.extract_button.pack(side=tk.LEFT, padx=5)
+
+        self.save_button = tk.Button(self.top_frame, text="Save File As", command=self.save_texture_map, **button_style)
+        self.save_button.pack(side=tk.LEFT, padx=5)
 
         # Create canvas for displaying the main image
         self.canvas = tk.Canvas(self.main_frame, width=self.canvas_width, height=self.canvas_height, bg='gray')
@@ -45,43 +104,32 @@ class TextureRipperApp:
         self.extracted_canvas = tk.Canvas(self.main_frame, width=400, height=400, bg="gray")
         self.extracted_canvas.pack(side=tk.LEFT, padx=10)
 
-        # Button frame to hold buttons
-        self.button_frame = tk.Frame(root)
-        self.button_frame.pack(side=tk.TOP, pady=10)
+
 
         # First row buttons
         self.first_row_frame = tk.Frame(self.button_frame)
         self.first_row_frame.pack(side=tk.TOP, pady=5)
 
-        self.load_button = tk.Button(self.first_row_frame, text="Load Image", command=self.load_image)
-        self.load_button.pack(side=tk.LEFT, padx=5)
-
-        self.add_selection_set_button = tk.Button(self.first_row_frame, text="Add Selection Set", command=self.add_selection_set)
+        self.add_selection_set_button = tk.Button(self.first_row_frame, text="Add Selection Set", command=self.add_selection_set, **button_style)
         self.add_selection_set_button.pack(side=tk.LEFT, padx=5)
 
-        self.prev_selection_set_button = tk.Button(self.first_row_frame, text="Previous Set", command=self.prev_selection_set)
+        self.prev_selection_set_button = tk.Button(self.first_row_frame, text="Previous Set", command=self.prev_selection_set, **button_style)
         self.prev_selection_set_button.pack(side=tk.LEFT, padx=5)
 
-        self.next_selection_set_button = tk.Button(self.first_row_frame, text="Next Set", command=self.next_selection_set)
+        self.next_selection_set_button = tk.Button(self.first_row_frame, text="Next Set", command=self.next_selection_set, **button_style)
         self.next_selection_set_button.pack(side=tk.LEFT, padx=5)
 
         # Second row buttons
         self.second_row_frame = tk.Frame(self.button_frame)
         self.second_row_frame.pack(side=tk.TOP, pady=5)
 
-        self.extract_button = tk.Button(self.second_row_frame, text="Extract Texture", command=self.extract_texture)
-        self.extract_button.pack(side=tk.LEFT, padx=5)
-
-        self.save_button = tk.Button(self.second_row_frame, text="Save As", command=self.save_texture_map)
-        self.save_button.pack(side=tk.LEFT, padx=5)
-
-        self.reset_button = tk.Button(self.second_row_frame, text="Reset View", command=self.reset_view)
+        self.reset_button = tk.Button(self.second_row_frame, text="Reset View", command=self.reset_view, **button_style)
         self.reset_button.pack(side=tk.LEFT, padx=5)
 
-        self.clear_points_button = tk.Button(self.second_row_frame, text="Clear Points", command=self.clear_points)
+        self.clear_points_button = tk.Button(self.second_row_frame, text="Clear Points", command=self.clear_points, **button_style)
         self.clear_points_button.pack(side=tk.LEFT, padx=5)
 
-        self.clear_map_button = tk.Button(self.second_row_frame, text="Clear Map", command=self.clear_map)
+        self.clear_map_button = tk.Button(self.second_row_frame, text="Clear Map", command=self.clear_map, **button_style)
         self.clear_map_button.pack(side=tk.LEFT, padx=5)
 
         # Bind mouse events for adding points, panning, zooming, and dragging
@@ -102,13 +150,31 @@ class TextureRipperApp:
         self.root.bind("<KeyRelease-Control_L>", self.disable_zoom_mode)
         self.root.bind("<KeyRelease-Control_R>", self.disable_zoom_mode)
 
-    def load_image(self):
+        if sys_arg_content:
+            self.root.after(20, self.init_gui) #20 ms delay forces tinkerer to spawn the image after GUI has loaded
+
+    def init_gui(self):
+        # After mainloop starts, call load_image if sys_arg_content exists
+        if self.sys_arg_content:
+            print(f"Loading image from: {self.sys_arg_content}")
+            #time.sleep(3)
+            self.load_image(self.sys_arg_content)
+
+    def drop(self, event):
+        filepath = event.data.strip("{}")  # handles filenames with spaces
+        print(f"filepath: {filepath}")
+        self.load_image(filepath)
+
+    def load_image(self, path=None):
+        #time.sleep(0.5)
         """Load an image file."""
-        self.image_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp")])
+        self.image_path = path or filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp")])
         if not self.image_path:
             return
         try:
+            #time.sleep(2)
             self.image = Image.open(self.image_path)
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open image:\n{e}")
             return
@@ -139,10 +205,15 @@ class TextureRipperApp:
         self.scale = min(self.canvas_width / self.img_width, self.canvas_height / self.img_height)
         self.canvas.config(width=self.canvas_width, height=self.canvas_height)
 
+
+        #######################
         self.display_image()
 
         # Automatically add the first selection set
         self.add_selection_set(first_set=True)
+
+        self.reset_view()
+        print("got this far")
 
 
     def display_image(self):
@@ -539,7 +610,38 @@ class TextureRipperApp:
         else:
             messagebox.showwarning("Warning", "No texture map to save.")
 
+    def save_project(self):
+        print(f"this is a test")
+
+    def load_project(self):
+        print(f"this is a test 2!")
+    
+
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = TextureRipperApp(root)
+    #root = tk.Tk()
+
+    #system argument
+    if len(sys.argv) < 2:
+        print("No file provided, continuing without a file.")
+        file_path = None  # or handle as needed, maybe use a default file path or skip file-related operations
+    else:
+        file_path = sys.argv[1]
+
+    SysArgContent = None
+
+    if file_path:
+        # Check if the provided file is an image file (optional check)
+        if os.path.isfile(file_path):
+            print(f"Image file provided: {file_path}")
+            SysArgContent = file_path
+        else:
+            print(f"Provided path is not a valid file: {file_path}")
+    else:
+        # Handle the case when no file is provided
+        print("Continuing with other operations.")
+
+    root = TkinterDnD.Tk()
+    app = TextureRipperApp(root, SysArgContent)
     root.mainloop()
+
