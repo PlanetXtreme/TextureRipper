@@ -1,70 +1,51 @@
 # Texture-Ripper
-A misguided attempt to recreate the Texture Ripper tool from [ShoeBox](https://renderhjs.net/shoebox/) with the power of ChatGPT.
-
-No, that doesn't mean AI assisted texture extraction. It means **I don't know how to code.**
-
-If I could still use ShoeBox, I would. It is/was an amazing program, it just doesn't really work on my computer anymore.
-
-This is **not** an amazing program, but it gets the job done, more-or-less. 
-
-![2024-09-18 10_17_20-Settings](https://github.com/user-attachments/assets/17da90ec-4a2d-43b1-bd3f-53facecc2e92)
+An attempt to recreate [ShoeBox](https://renderhjs.net/shoebox/) with the power of ChatGPT.
 
 # How to Use:
 
-- **Load an Image:**
+- **Saving/Loading**
+  - **Load an image:**
     - Click the **"Load Image"** button and select the image file.
+    - Drag an image on the GUI
+    - Drag an image onto the Python file itself
+  - **Load project files**
+    - Save/Load Project buttons (TexR format, plaintext. Stands for TextureRipper)
 - **Select Points:**
-    - Click on the image to select four points outlining the area to extract.
+    - Click anywhere on the image to place a point.
+    - Strategically place four points to perspective correct a desired texture extraction.
     - Adjust points by clicking and dragging them.
-- **Extract Texture:**
-    - Click **"Extract Texture"** to extract the selected area.
+- **Render Texture:**
+    - Click **"Render Texture"** to extract the selected area.
     - The points remain on the image, allowing further adjustments if needed.
-    - If you modify the points and click **"Extract Texture"** again, the texture in the map is updated.
+    - If you modify the points and click **"Render Texture"** again, the texture in the map is updated.
 - **Add More Selection Sets:**
     - Click **"Add Selection Set"** to define additional textures.
     - Use **"Previous Set"** and **"Next Set"** to navigate between selection sets.
+    - Delete selection sets as well.
 - **Save the Texture Map:**
-    - Once all textures are extracted and adjusted, click **"Save As"** to save the map.
-- **Clear Points or Map:**
+    - Once all desired textures are rendered, click **"Save File As"** to save the map.
+- **Clear:**
     - Use **"Clear Points"** to reset points in the current selection set.
     - Use **"Clear Map"** to clear all extracted textures and start over.
+    - Use **Del Selection Set** to delete current selection set.
+    - Use **Reset View** to reset the current zoom.
 - **Zoom and Pan:**
     - **Hold Control and use the mouse wheel to zoom.**
     - Use the middle or right mouse button to pan.
 
+
 # Installation:
 
 **Python:**
-
-**1: Clone the repository in the desired location:**
-`git clone https://github.com/rpalmerdev/Texture-Ripper.git`
-
-**2: Create a Virtual Environment (Optional but Recommended):**
-
-- **Open a terminal or command prompt.**
-    
-- **Navigate** to the directory where you saved `texture_ripper.py`.
-    
-- **Create** a virtual environment by running:
-  `python -m venv venv`
-  
-- **Activate** the virtual environment:
-  On **Windows**:
-  `venv\Scripts\activate`
-  On **macOS/Linux**:
-  `source venv/bin/activate`
-
-**3: Install the Required Dependencies:**
-- Using Pip:
-  `pip install -r requirements.txt`
-
-**4: Run the Application:**
-`python texture_ripper.py`
-
-**OR** download the binary from the [Releases](https://github.com/rpalmerdev/Texture-Ripper/releases/tag/v1.0.0) page. (Windows)
+Download the python file.
+Install the dependenices via cmd or however you like:
+The commands I would run:
+    `pip install tkinterdnd2`
+    `pip install tkinter`
+    `pip install cv2`
+    `pip install numpy`
 
 # Limitations:
-
-- Currently does not support using curved lines for texture extraction like ShoeBox does.
-- Texture packing method is pretty simple/unoptimized. 
-- I should have implemented a dark/light mode toggle, but I didn't. Coming soon™
+- Animations do not render properly with multiple sets (unlikely to ever change - Only animate one set at a time, only have 1 set at a time for animations, ideally).
+- Does not support using bezier curves for texture extraction like ShoeBox (unlikely to be implemented - requires total restructuring of code).
+- Texture packing method is simple, unoptimized.
