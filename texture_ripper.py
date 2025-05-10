@@ -1,3 +1,8 @@
+#Notes for improvements
+#Bezier curves for each edge
+#saving projects as project files (.TexR in plaintext format - Stores control points AND input image current directory)
+
+
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
@@ -121,6 +126,15 @@ class TextureRipperApp:
         # Get image dimensions
         self.img_width, self.img_height = self.image.size
 
+        # Create low-res image (max 2048 width)
+        max_width = 2048
+        if self.img_width > max_width:
+            scale_factor = max_width / self.img_width
+            lowres_height = int(self.img_height * scale_factor)
+            self.lowres_image = self.image.resize((max_width, lowres_height), Image.BILINEAR)
+        else:
+            self.lowres_image = self.image.copy()
+
         # Adjust canvas size based on image size while maintaining aspect ratio
         self.scale = min(self.canvas_width / self.img_width, self.canvas_height / self.img_height)
         self.canvas.config(width=self.canvas_width, height=self.canvas_height)
@@ -130,21 +144,45 @@ class TextureRipperApp:
         # Automatically add the first selection set
         self.add_selection_set(first_set=True)
 
+
     def display_image(self):
-        """Display the image on the canvas, accounting for zoom and panning."""
-        if self.image:
-            # Calculate scaled dimensions
-            scaled_width = int(self.img_width * self.scale * self.zoom_level)
-            scaled_height = int(self.img_height * self.scale * self.zoom_level)
+        """Display image efficiently using viewport-based rendering and low-res fallback."""
+        if not self.image:
+            return
 
-            # Resize the image
-            resized_image = self.image.resize((scaled_width, scaled_height), Image.LANCZOS)
-            self.canvas_image = ImageTk.PhotoImage(resized_image)
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        scale = self.scale * self.zoom_level
 
-            # Clear the canvas and display the image
-            self.canvas.delete("all")
-            self.canvas.create_image(self.canvas_offset_x, self.canvas_offset_y, anchor=tk.NW, image=self.canvas_image)
-            self.draw_grid()
+        # Use low-res image if zoomed out
+        use_lowres = self.zoom_level < 2
+        img = self.lowres_image if use_lowres else self.image
+        img_width = img.width
+        img_height = img.height
+        effective_scale = scale * (self.img_width / img_width)  # Adjust for lowres scale if used
+
+        # Compute visible region in image coords
+        left = int(max(0, (0 - self.canvas_offset_x) / effective_scale))
+        top = int(max(0, (0 - self.canvas_offset_y) / effective_scale))
+        right = int(min(img_width, (canvas_width - self.canvas_offset_x) / effective_scale))
+        bottom = int(min(img_height, (canvas_height - self.canvas_offset_y) / effective_scale))
+
+        # Crop and resize
+        cropped = img.crop((left, top, right, bottom))
+        display_width = int((right - left) * effective_scale)
+        display_height = int((bottom - top) * effective_scale)
+        resized = cropped.resize((display_width, display_height), Image.BILINEAR)
+
+        self.canvas_image = ImageTk.PhotoImage(resized)
+        self.canvas.delete("all")
+        self.canvas.create_image(
+            max(0, self.canvas_offset_x),
+            max(0, self.canvas_offset_y),
+            anchor=tk.NW,
+            image=self.canvas_image
+        )
+        self.draw_grid()
+
 
     def image_to_canvas_coords(self, x, y):
         """Convert image coordinates to canvas coordinates."""
@@ -275,7 +313,7 @@ class TextureRipperApp:
             selection_set['texture'] = None
         self.map_image = None
         self.extracted_canvas.delete("all")
-        messagebox.showinfo("Info", "Texture map cleared.")
+        #messagebox.showinfo("Info", "Texture map cleared.")
 
     def zoom_image(self, event):
         """Zoom in or out based on the mouse wheel while Control is held."""
