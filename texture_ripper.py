@@ -99,7 +99,7 @@ class TextureRipperApp:
 
     def load_image(self):
         """Load an image file."""
-        self.image_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.bmp")])
+        self.image_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp")])
         if not self.image_path:
             return
         try:
@@ -491,7 +491,7 @@ class TextureRipperApp:
         """Save the texture map to a user-specified location."""
         if self.map_image:
             file_path = filedialog.asksaveasfilename(defaultextension=".png",
-                                                     filetypes=[("PNG Files", "*.png"), ("JPEG Files", "*.jpg;*.jpeg")])
+                                                     filetypes=[("PNG Files", "*.png"), ("JPEG Files", "*.jpg;*.jpeg"), ("TIF Files", "*.tif;*.tiff")])
             if file_path:
                 try:
                     self.map_image.save(file_path)
