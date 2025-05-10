@@ -220,8 +220,6 @@ class TextureRipperApp:
         self.add_selection_set(first_set=True)
 
         self.reset_view()
-        print("got this far")
-
 
     def display_image(self):
         """Display image efficiently using viewport-based rendering and low-res fallback."""
@@ -512,7 +510,7 @@ class TextureRipperApp:
         if self.current_selection_set_index is None: 
             messagebox.showwarning("Warning", "Please load an image first.")
             return
-        if self.current_selection_set_index is 0: #0 fixes a bug in console and popup
+        if self.current_selection_set_index is -1: #0 fixes a bug in console and popup
             messagebox.showwarning("Warning", "Please add a selection set and 4 points.")
             return
         
