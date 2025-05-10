@@ -44,6 +44,7 @@ The commands I would run:
     `pip install tkinter`
     `pip install cv2`
     `pip install numpy`
+    `pip install pillow`
 
 # Limitations:
 - Animations do not render properly with multiple sets (unlikely to ever change - Only animate one set at a time, only have 1 set at a time for animations, ideally).
