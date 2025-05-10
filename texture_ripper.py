@@ -1,6 +1,5 @@
 #Notes for improvements
-#Bezier curves for each edge
-#saving projects as project files (.TexR in plaintext format - Stores control points AND input image current directory)
+#Bezier curves for each edge (probably realistically impossible - It seems only openCV supports 4 point corrections, not... with bezier)
 #rotate an input image
 #rotate render output
 #ability to animate/batch export a sequence from the placed coordinates
@@ -15,6 +14,9 @@ import cv2
 import numpy as np
 import time
 import os
+import json
+
+theImagePath = None
 
 class TextureRipperApp:
     def __init__(self, root, sys_arg_content=None):
@@ -113,6 +115,9 @@ class TextureRipperApp:
         self.add_selection_set_button = tk.Button(self.first_row_frame, text="Add Selection Set", command=self.add_selection_set, **button_style)
         self.add_selection_set_button.pack(side=tk.LEFT, padx=5)
 
+        self.add_selection_set_button = tk.Button(self.first_row_frame, text="Del Selection Set", command=self.del_selection_set, **button_style)
+        self.add_selection_set_button.pack(side=tk.LEFT, padx=5)
+
         self.prev_selection_set_button = tk.Button(self.first_row_frame, text="Previous Set", command=self.prev_selection_set, **button_style)
         self.prev_selection_set_button.pack(side=tk.LEFT, padx=5)
 
@@ -151,7 +156,7 @@ class TextureRipperApp:
         self.root.bind("<KeyRelease-Control_R>", self.disable_zoom_mode)
 
         if sys_arg_content:
-            self.root.after(20, self.init_gui) #20 ms delay forces tinkerer to spawn the image after GUI has loaded
+            self.root.after(40, self.init_gui) #20 ms delay forces tinkerer to spawn the image after GUI has loaded
 
     def init_gui(self):
         # After mainloop starts, call load_image if sys_arg_content exists
@@ -166,6 +171,7 @@ class TextureRipperApp:
         self.load_image(filepath)
 
     def load_image(self, path=None):
+        global theImagePath
         #time.sleep(0.5)
         """Load an image file."""
         self.image_path = path or filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.bmp")])
@@ -174,6 +180,7 @@ class TextureRipperApp:
         try:
             #time.sleep(2)
             self.image = Image.open(self.image_path)
+            theImagePath = self.image
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open image:\n{e}")
@@ -318,6 +325,32 @@ class TextureRipperApp:
             self.draw_grid()
         else:
             messagebox.showinfo("Info", "No next selection set.")
+
+    def del_selection_set(self):
+        # Check if there is a current selection set to remove
+        if len(self.selection_sets) > 0:
+            # Remove the current selection set
+            del self.selection_sets[self.current_selection_set_index]
+
+            # Adjust the current selection set index
+            if len(self.selection_sets) > 0:
+                # If there are still selection sets, move the index to the last one
+                self.current_selection_set_index = len(self.selection_sets) - 1
+            else:
+                # If no selection sets are left, reset the index
+                self.current_selection_set_index = -1
+
+            # Reset the selected point
+            self.selected_point = None
+
+            # Redraw the grid
+            self.draw_grid()
+
+            # Show a confirmation message
+            messagebox.showinfo("Info", "Selection set removed.")
+        else:
+            messagebox.showwarning("Warning", "No selection sets to remove.")
+
 
     def add_or_select_point(self, event):
         """Add a point or select a point to drag."""
@@ -476,10 +509,13 @@ class TextureRipperApp:
 
     def extract_texture(self):
         """Extract the texture using the selected quadrilateral points."""
-        if self.current_selection_set_index is None:
+        if self.current_selection_set_index is None: 
             messagebox.showwarning("Warning", "Please load an image first.")
             return
-
+        if self.current_selection_set_index is 0: #0 fixes a bug in console and popup
+            messagebox.showwarning("Warning", "Please add a selection set and 4 points.")
+            return
+        
         selection_set = self.selection_sets[self.current_selection_set_index]
         points = selection_set['points']
 
@@ -610,11 +646,66 @@ class TextureRipperApp:
         else:
             messagebox.showwarning("Warning", "No texture map to save.")
 
+    
     def save_project(self):
-        print(f"this is a test")
+        """Save the current project, including image path and selection sets."""
+        global theImagePath
+        theImagePath = self.image_path  # Set the global image path
+        
+        # Ask user for a directory to save the .TexR file
+        save_path = filedialog.asksaveasfilename(defaultextension=".TexR", filetypes=[("TexR Files", "*.TexR")])
+        if not save_path:
+            return
+        
+        project_data = {
+            "image_path": self.image_path,
+            "selection_sets": []
+        }
 
-    def load_project(self):
-        print(f"this is a test 2!")
+        # Store each selection set's points
+        for selection_set in self.selection_sets:
+            project_data["selection_sets"].append({
+                "points": selection_set['points']
+            })
+
+        # Save the data as plaintext in the .TexR file
+        try:
+            with open(save_path, 'w') as file:
+                file.write(json.dumps(project_data, indent=4))
+            #messagebox.showinfo("Info", "Project saved.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save project:\n{e}")
+
+    def load_project(self, path=None):
+        """Load a project from a .TexR file."""
+        load_path = path or filedialog.askopenfilename(filetypes=[("TexR Files", "*.TexR")])
+        if not load_path:
+            return
+        
+        # Load the project data
+        try:
+            with open(load_path, 'r') as file:
+                project_data = json.load(file)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load project:\n{e}")
+            return
+        
+        # Load image path
+        self.image_path = project_data["image_path"]
+        global theImagePath
+        theImagePath = self.image_path  # Set the global image path
+        
+        self.load_image(self.image_path)
+
+        # Load selection sets
+        self.selection_sets = []
+        for set_data in project_data["selection_sets"]:
+            selection_set = {'points': set_data["points"], 'texture': None}
+            self.selection_sets.append(selection_set)
+        
+        # Update the UI or canvas here (you can customize this part based on your needs)
+        self.display_image()  # Assuming this is the function that updates the image view
+        #messagebox.showinfo("Info", "Project loaded.")
     
 
 
